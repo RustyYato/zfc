@@ -608,3 +608,5 @@ def Zf.inter_sub_right (a b: α) :
   a ∩ b ⊆ b := by
   intro k mem
   exact (mem_inter.mp mem).right
+
+def Zf.sub_refl (a: α) : a ⊆ a := fun _ => id

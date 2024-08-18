@@ -279,3 +279,220 @@ def Zf.IsOrdinal.succ_mem_succ { a b: α } :
   contradiction
   have := Zf.no_mem_cycle (.tail (.tail (.single h) a_in_b) (mem_succ.mpr (Or.inl rfl)))
   contradiction
+
+def Zf.IsOrdinal.omega :
+  Zf.IsOrdinal (Zf.omega: α) := by
+  apply Zf.IsOrdinal.mk
+  · intro x x_in_omega y y_in_x
+    have ⟨ n, _ ⟩  := mem_omega.mp x_in_omega
+    subst x
+    have ⟨ m, _, _ ⟩  := mem_ofNat.mp y_in_x
+    subst y
+    apply mem_omega.mpr
+    exists m
+  · intro x y x_in_omega y_in_omega
+    have ⟨ n, _ ⟩  := mem_omega.mp x_in_omega
+    subst x
+    have ⟨ m, _ ⟩  := mem_omega.mp y_in_omega
+    subst y
+    clear x_in_omega y_in_omega
+    cases h:compare n m
+    · apply Or.inl
+      apply mem_ofNat.mpr
+      exists n
+      apply And.intro _ rfl
+      exact Nat.compare_eq_lt.mp h
+    · apply Or.inr
+      apply Or.inr
+      congr
+      exact Nat.compare_eq_eq.mp h
+    · apply Or.inr
+      apply Or.inl
+      apply mem_ofNat.mpr
+      exists m
+      apply And.intro _ rfl
+      exact Nat.compare_eq_gt.mp h
+
+def Zf.IsOrdinal.ofNat.inj : (Zf.ofNat n: α) = Zf.ofNat m -> n = m := by
+  intro h
+  induction n generalizing m with
+  | zero =>
+    match m with
+    | 0 => rfl
+    | m + 1 =>
+      unfold Zf.ofNat at h
+      have : (Zf.ofNat m: α) ∈ (Zf.ofNat m)⁺ := mem_succ.mpr (Or.inl rfl)
+      rw [←h] at this
+      have := not_mem_empty _ this
+      contradiction
+  | succ n ih =>
+    match m with
+    | 0 =>
+      unfold Zf.ofNat at h
+      have : (Zf.ofNat n: α) ∈ (Zf.ofNat n)⁺ := mem_succ.mpr (Or.inl rfl)
+      rw [h] at this
+      have := not_mem_empty _ this
+      contradiction
+    | m + 1 =>
+      unfold Zf.ofNat at h
+      rw [ih]
+      apply succ_inj _ _ h
+      apply Zf.IsOrdinal.ofNat
+      apply Zf.IsOrdinal.ofNat
+
+def Ordinal α [Zf α] := { a: α // Zf.IsOrdinal a }
+
+instance Ordinal.ofNat (n: Nat) : Ordinal α := ⟨ Zf.ofNat n, Zf.IsOrdinal.ofNat ⟩
+
+instance Ordinal.OfNat (n: Nat) : OfNat (Ordinal α) n := ⟨ ofNat n ⟩
+
+def Ordinal.omega : Ordinal α := ⟨ Zf.omega, Zf.IsOrdinal.omega ⟩
+
+notation "ω" => Ordinal.omega
+
+@[simp]
+instance : LT (Ordinal α) where
+  lt a b := a.val ∈ b.val
+
+@[simp]
+instance : LE (Ordinal α) where
+  le a b := a.val ⊆ b.val
+
+def Ordinal.lt_or_ge (a b: Ordinal α) :
+  a < b ∨ a ≥ b := by
+  cases Zf.IsOrdinal.mem_total a.property b.property
+  apply Or.inl
+  assumption
+  apply Or.inr
+  rename_i h
+  cases h
+  have : a = b := by cases a <;> cases b <;> congr
+  subst b
+  apply Zf.sub_refl
+  apply a.property.IsTransitive
+  assumption
+
+def Ordinal.lt_irrefl (a: Ordinal α) :
+  ¬a < a := Zf.mem_irrefl _
+
+def Ordinal.lt_trans {a b c: Ordinal α} :
+  a < b -> b < c -> a < c := by
+  intro ab bc
+  cases a.lt_or_ge c
+  · assumption
+  · rename_i h
+    have := h _ bc
+    have := Zf.mem_asymm ab this
+    contradiction
+
+def Ordinal.not_lt_of_le {a b: Ordinal α} :
+  a ≤ b -> ¬b < a := by
+  intro a_le_b b_lt_a
+  have := a_le_b b.val b_lt_a
+  exact Zf.mem_irrefl _ this
+
+def Ordinal.lt_or_eq_of_le {a b: Ordinal α} :
+  a ≤ b -> a < b ∨ a = b := by
+  intro ab
+  cases Zf.IsOrdinal.mem_total a.property b.property
+  · apply Or.inl; assumption
+  · rename_i h
+    cases h
+    · apply Or.inr; cases a; cases b; congr
+    · have := Ordinal.not_lt_of_le ab
+      contradiction
+
+def Ordinal.lt_of_lt_of_le {a b c: Ordinal α} :
+  a < b -> b ≤ c -> a < c := by
+  intro ab bc
+  cases lt_or_eq_of_le bc
+  apply lt_trans <;> assumption
+  subst c
+  assumption
+
+def Ordinal.lt_of_le_of_lt {a b c: Ordinal α} :
+  a ≤ b -> b < c -> a < c := by
+  intro ab bc
+  cases lt_or_eq_of_le ab
+  apply lt_trans <;> assumption
+  subst a
+  assumption
+
+def Ordinal.le_antisymm {a b: Ordinal α} :
+  a ≤ b -> b ≤ a -> a = b := by
+  intro ab ba
+  cases a ; cases b; congr
+  apply Zf.sub_ext <;> assumption
+
+def Ordinal.lt_antisymm {a b: Ordinal α} :
+  a < b -> b < a -> False := Zf.mem_asymm
+
+def Ordinal.lt_omega {a: Ordinal α} :
+  a < ω -> ∃n, a = OfNat.ofNat n := by
+  intro a_lt_omega
+  have ⟨ n, prf ⟩  := Zf.mem_omega.mp a_lt_omega
+  exists n
+  cases a
+  congr
+
+def Ordinal.ofNat_le_ofNat :
+  (ofNat n: Ordinal α) ≤ ofNat m ↔ n ≤ m:= by
+  apply Iff.intro
+  intro prf
+  have : (OfNat.ofNat n: Ordinal α) < OfNat.ofNat m.succ := by
+    apply lt_of_le_of_lt prf
+    apply Zf.mem_succ.mpr
+    apply Or.inl
+    rfl
+  have ⟨ m', mle, prf ⟩  := Zf.mem_ofNat.mp this
+  have := Zf.IsOrdinal.ofNat.inj prf
+  subst m'
+  apply Nat.le_of_lt_succ
+  assumption
+  intro n_le_m
+  intro k k_in_n
+  apply Zf.mem_ofNat.mpr
+  have ⟨ k', k'_lt_n, _ ⟩  := Zf.mem_ofNat.mp k_in_n
+  subst k
+  exists k'
+  apply And.intro _ rfl
+  apply Nat.lt_of_lt_of_le
+  assumption
+  assumption
+
+def Ordinal.ofNat_lt_ofNat :
+  (ofNat n: Ordinal α) < ofNat m ↔ n < m:= by
+  apply Iff.intro
+  intro prf
+  have ⟨ _, _, h ⟩  := Zf.mem_ofNat.mp prf
+  cases Zf.IsOrdinal.ofNat.inj h
+  assumption
+  intro n_lt_m
+  apply Zf.mem_ofNat.mpr
+  exists n
+
+def Ordinal.le_ofNat {a: Ordinal α} :
+  a ≤ ofNat n -> ∃m ≤ n, a = ofNat m := by
+  intro a_le_ofNat
+  have : a < OfNat.ofNat n.succ  := by
+    apply lt_of_le_of_lt
+    assumption
+    apply ofNat_lt_ofNat.mpr
+    apply Nat.lt_succ_self
+  have ⟨ m, m_lt, prff ⟩  := Zf.mem_ofNat.mp this
+  cases a
+  exists m
+  apply And.intro
+  apply Nat.le_of_lt_succ
+  assumption
+  congr
+
+def Ordinal.lt_ofNat {a: Ordinal α} :
+  a < ofNat n -> ∃m < n, a = ofNat m := by
+  intro a_lt_ofNat
+  have ⟨ m, m_lt, prff ⟩  := Zf.mem_ofNat.mp a_lt_ofNat
+  cases a
+  exists m
+  apply And.intro
+  assumption
+  congr
