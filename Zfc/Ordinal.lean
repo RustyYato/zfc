@@ -4,10 +4,15 @@ variable [Zf α]
 
 def Zf.IsTransitive (a: α): Prop := ∀x ∈ a, x ⊆ a
 
-def Zf.IsOrdinal (a: α): Prop := ∀x ∈ a, x ∩ a = x
+def Zf.IsTotalOrder (a: α): Prop := ∀x y, x ∈ a -> y ∈ a -> (x ∈ y ∨ y ∈ x ∨ x = y)
+
+structure Zf.IsOrdinal (a: α): Prop where
+  mem_is_init_segment: ∀x ∈ a, x ∩ a = x
+  is_total: Zf.IsTotalOrder a
 
 def Zf.IsOrdinal.omega :
   Zf.IsOrdinal (Zf.omega: α) := by
+  apply Zf.IsOrdinal.mk
   intro x x_in_oemga
   have ⟨ n, prf ⟩  := mem_omega.mp x_in_oemga
   subst x
@@ -18,19 +23,58 @@ def Zf.IsOrdinal.omega :
   subst k
   apply mem_omega.mpr
   exists m
+  intro x y x_in_omega y_in_omega
+  have ⟨ n, _ ⟩  := mem_omega.mp x_in_omega
+  subst x
+  have ⟨ m, _ ⟩  := mem_omega.mp y_in_omega
+  subst y
+  clear x_in_omega y_in_omega
+  cases h:(compare n m)
+  apply Or.inl
+  apply mem_ofNat.mpr
+  exists n
+  apply And.intro
+  exact Nat.compare_eq_lt.mp h
+  rfl
+  apply Or.inr
+  apply Or.inr
+  congr
+  exact Nat.compare_eq_eq.mp h
+  apply Or.inr
+  apply Or.inl
+  apply mem_ofNat.mpr
+  exists m
+  apply And.intro
+  exact Nat.compare_eq_gt.mp h
+  rfl
 
 def Zf.IsOrdinal.IsTransitive { a: α } :
   IsOrdinal a -> IsTransitive a := by
   intro ord_a
   intro x x_in_a
-  have := ord_a x x_in_a
+  have := ord_a.mem_is_init_segment x x_in_a
   rw [←this]
   intro y y_in_x
   have ⟨ _ ,_ ⟩ := mem_inter.mp y_in_x
   assumption
 
-def Zf.IsTransitive.IsOrdinal { a: α } :
-  IsTransitive a -> IsOrdinal a := by
+def Zf.IsOrdinal.mem_trans (a: α) :
+  IsOrdinal a -> ∀x ∈ a, Zf.IsTransitive x := by
+  intro ord_as x x_in_a
+  intro y y_in_x z z_in_y
+  have y_in_a := ord_as.IsTransitive x x_in_a y y_in_x
+  have z_in_a := ord_as.IsTransitive y y_in_a z z_in_y
+  cases ord_as.is_total x z x_in_a z_in_a <;> rename_i h
+  have := no_mem_cycle (.tail (.tail (.single z_in_y) y_in_x) h)
+  contradiction
+  cases h <;> rename_i h
+  assumption
+  subst z
+  have := no_mem_cycle (.tail (.single z_in_y) y_in_x)
+  contradiction
+
+def Zf.IsTransitive.IsOrdinal₀ { a: α } :
+  IsTransitive a -> ∀x ∈ a, x ∩ a = x := by
   intro trans_a
   intro x x_in_a
   apply ext
@@ -45,6 +89,15 @@ def Zf.IsTransitive.IsOrdinal { a: α } :
   apply trans_a
   assumption
   assumption
+
+def Zf.IsOrdinal.mem (x: α) :
+  IsOrdinal x -> ∀y ∈ x, Zf.IsOrdinal y := by
+  intro ord_x y y_in_x
+  apply IsOrdinal.mk
+  apply (Zf.IsOrdinal.mem_trans x ord_x y y_in_x).IsOrdinal₀
+  intro a b a_in_y b_in_y
+  have := ord_x.IsTransitive y y_in_x
+  exact ord_x.is_total a b (this a a_in_y) (this b b_in_y)
 
 def Zf.IsLimitOrdinal (a: α) := IsOrdinal a ∧ ∀x, Zf.succ x ≠ a
 
@@ -148,42 +201,16 @@ def Zf.IsOrdinal.ssub_mem { a b: α } :
     intro k k_in_a
     apply lem.byContradiction
     intro k_not_in_s
-    admit
+    cases ord_b.is_total s k (s_in_b) (a_sub_b k k_in_a) <;> rename_i h
+    have := ord_a.IsTransitive k k_in_a s h
+    contradiction
+    cases h <;> rename_i h
+    contradiction
+    subst k
+    contradiction
 
   cases Zf.sub_ext a_sub_s s_sub_a
   assumption
-
-  -- have : Zf.IsInitialSegmentOf (a ∪ { s }) b := by
-  --   apply And.intro
-  --   intro k mem
-  --   cases mem_union.mp mem
-  --   apply a_sub_b
-  --   assumption
-  --   rename_i k_eq_s
-  --   cases mem_singleton.mp k_eq_s
-  --   assumption
-  --   intro x x_in_b y y_in_b x_in_y mem
-  --   apply mem_union.mpr
-  --   cases mem_union.mp mem
-  --   · apply Or.inl
-  --     rename_i y_in_a
-  --     apply ord_a.IsTransitive
-  --     assumption
-  --     assumption
-  --   · apply Or.inl
-  --     rename_i h
-  --     cases mem_singleton.mp h
-  --     apply s_sub_a
-  --     assumption
-
-def Zf.IsLimitOrdinal.succ_mem { a b: α } :
-  IsOrdinal a ->
-  IsLimitOrdinal b ->
-  a ∈ b ->
-  succ a ∈ b := by
-  intro ord_a ord_b a_in_b
-  have := IsOrdinal.succ_subset_of_mem ord_a ord_b.left a_in_b
-  admit
 
 def Zf.IsOrdinal.succ_mem_succ { a b: α } :
   IsOrdinal a ->

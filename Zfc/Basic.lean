@@ -320,6 +320,7 @@ def Zf.mem_omega :
 
 def Zf.mem_irrefl (a: α) : a ∉ a := WellFounded.irrefl Zf.wf
 def Zf.mem_asymm {a b: α} : a ∈ b -> b ∉ a := WellFounded.asymm Zf.wf
+def Zf.no_mem_cycle {a: α} : Relation.TransGen (· ∈ ·) a a -> False := WellFounded.no_cycle Zf.wf
 def Zf.ne_of_mem {a b: α} : a ∈ b -> a ≠ b := by
   intro mem h
   subst a
