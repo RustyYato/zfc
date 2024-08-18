@@ -726,6 +726,73 @@ def Ordinal.infimum_eq_zero (a b: Ordinal α) (h: b < a) : a.infimum b h = 0 := 
   assumption
   apply zero_le
 
+def Ordinal.supremem_succ (a: Ordinal α) : a.succ.supremum = a := by
+  unfold supremum supremum_of_set
+  cases a with | mk a ord_a =>
+  unfold succ
+  congr
+  dsimp
+  apply Zf.ext
+  intro x
+  apply Iff.intro
+  · intro x_in_sunion
+    have ⟨ y, y_in_asucc, x_in_y ⟩  := Zf.mem_sUnion.mp x_in_sunion
+    cases Zf.mem_succ.mp y_in_asucc
+    · subst a; assumption
+    · apply ord_a.IsTransitive <;> assumption
+  · intro x_in_a
+    apply Zf.mem_sUnion.mpr
+    exists a
+    apply And.intro
+    apply Zf.mem_succ.mpr
+    apply Or.inl rfl
+    assumption
+
+def Ordinal.le_of_lt_succ {a: Ordinal α} :
+  ∀{x}, x < a -> x.succ ≤ a := by
+  intro x x_lt_a
+  intro k k_in_succ
+  cases Zf.mem_succ.mp k_in_succ
+  subst k
+  assumption
+  apply a.property.IsTransitive
+  assumption
+  assumption
+
+def Ordinal.successor_of_limit {a: Ordinal α} :
+  a.IsLimitOrdinal ->
+  ∀{x}, x < a -> x.succ < a := by
+  intro limit x x_lt_a
+  cases lt_or_eq_of_le <| le_of_lt_succ x_lt_a
+  assumption
+  subst a
+  have := limit x
+  contradiction
+
+def Ordinal.supremem_limit (a: Ordinal α) : a.IsLimitOrdinal -> a.supremum = a := by
+  intro limit
+  cases a with | mk a ord_a =>
+  unfold supremum supremum_of_set
+  congr
+  dsimp
+  apply Zf.ext
+  intro x
+  apply Iff.intro
+  · intro mem_sunion
+    have ⟨ y, y_in_a, x_in_y ⟩  := Zf.mem_sUnion.mp mem_sunion
+    apply ord_a.IsTransitive
+    assumption
+    assumption
+  · intro x_in_a
+    apply Zf.mem_sUnion.mpr
+    exists x⁺
+    apply And.intro
+    let x' := mk x (ord_a.mem _ _ x_in_a)
+    have : x' < mk a ord_a := x_in_a
+    exact successor_of_limit limit this
+    apply Zf.mem_succ.mpr
+    apply Or.inl rfl
+
 def Ordinal.addNat (a: Ordinal α) : Nat -> Ordinal α
 | 0 => a
 | n + 1 => (a.addNat n).succ
