@@ -1,4 +1,9 @@
-axiom lem (p: Prop) : p ∨ ¬p
+axiom lemAx (p: Prop) : Decidable p
+
+def lem (p: Prop) : p ∨ ¬p :=
+  match lemAx p with
+  | .isTrue h => .inl h
+  | .isFalse h => .inr h
 
 namespace lem
 

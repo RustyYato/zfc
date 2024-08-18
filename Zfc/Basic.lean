@@ -610,3 +610,5 @@ def Zf.inter_sub_right (a b: α) :
   exact (mem_inter.mp mem).right
 
 def Zf.sub_refl (a: α) : a ⊆ a := fun _ => id
+
+def Zf.empty_sub (a: α) : ∅ ⊆ a := fun _ h => (Zf.not_mem_empty _ h).elim
