@@ -598,3 +598,13 @@ def Zf.mem_of_succ_subset { a b: α } :
   apply mem_succ.mpr
   apply Or.inl
   rfl
+
+def Zf.inter_sub_left (a b: α) :
+  a ∩ b ⊆ a := by
+  intro k mem
+  exact (mem_inter.mp mem).left
+
+def Zf.inter_sub_right (a b: α) :
+  a ∩ b ⊆ b := by
+  intro k mem
+  exact (mem_inter.mp mem).right
