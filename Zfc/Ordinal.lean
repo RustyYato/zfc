@@ -342,6 +342,17 @@ def Ordinal α [Zf α] := { a: α // Zf.IsOrdinal a }
 
 def Ordinal.mk (a: α) (h: Zf.IsOrdinal a): Ordinal α := ⟨ a, h ⟩
 
+@[simp]
+def Ordinal.val_mk (a: Ordinal α) :
+  ⟨ a.val, a.property ⟩ = a := rfl
+
+@[simp]
+def Ordinal.mk_val (a: α) (b: Zf.IsOrdinal a) :
+  (⟨ a, b ⟩: Ordinal α).val = a := rfl
+
+@[simp]
+def Ordinal.mem (a: Ordinal α) : ∀x ∈ a.val, Ordinal α := fun x mem => ⟨ _, a.property.mem _ x mem ⟩
+
 instance Ordinal.ofNat (n: Nat) : Ordinal α := ⟨ Zf.ofNat n, Zf.IsOrdinal.ofNat ⟩
 
 instance Ordinal.OfNat (n: Nat) : OfNat (Ordinal α) n := ⟨ ofNat n ⟩
@@ -538,6 +549,15 @@ def Ordinal.induction (motive: Ordinal α -> Prop) :
   assumption
 termination_by _ o => o
 
+def Ordinal.recursion (motive: Ordinal α -> Type u) :
+  (lt: ∀o, (∀x < o, motive x) -> motive o) -> ∀o, motive o := by
+  intro lt o
+  apply lt
+  intro x _
+  apply Ordinal.recursion
+  assumption
+termination_by _ o => o
+
 def Ordinal.transfinite_induction (motive: Ordinal α -> Prop) :
   (limit: ∀o: Ordinal α, o.IsLimitOrdinal -> (∀x < o, motive x) -> motive o) ->
   (succ:  ∀o: Ordinal α, motive o -> motive o.succ) -> ∀o, motive o := by
@@ -574,33 +594,41 @@ def Ordinal.min (a b: Ordinal α) : Ordinal α := by
   exact a.property
   exact b.property
 
-def Ordinal.max (a b: Ordinal α) : Ordinal α := by
-  apply Subtype.mk (a.val ∪ b.val)
+def Zf.IsOrdinal.union (a b: α) :
+  IsOrdinal a ->
+  IsOrdinal b ->
+  IsOrdinal (a ∪ b) := by
+  intro ord_a ord_b
   apply Zf.IsOrdinal.mk
   · intro x x_in_union y y_in_x
     apply Zf.mem_union.mpr
     cases Zf.mem_union.mp x_in_union
     apply Or.inl
-    apply a.property.IsTransitive
+    apply ord_a.IsTransitive
     assumption
     assumption
     apply Or.inr
-    apply b.property.IsTransitive
+    apply ord_b.IsTransitive
     assumption
     assumption
   · intro x y x_in_union y_in_union
     apply Zf.IsOrdinal.mem_total
     cases Zf.mem_union.mp x_in_union
-    apply a.property.mem; assumption
-    apply b.property.mem; assumption
+    apply ord_a.mem; assumption
+    apply ord_b.mem; assumption
     cases Zf.mem_union.mp y_in_union
-    apply a.property.mem; assumption
-    apply b.property.mem; assumption
+    apply ord_a.mem; assumption
+    apply ord_b.mem; assumption
 
-def Ordinal.supremum_of_set (a: α) :
-  (∀x ∈ a, Zf.IsOrdinal x) -> Ordinal α := by
+def Ordinal.max (a b: Ordinal α) : Ordinal α := by
+  apply Subtype.mk (a.val ∪ b.val)
+  apply Zf.IsOrdinal.union
+  exact a.property
+  exact b.property
+
+def Zf.IsOrdinal.supremum_of_set (a: α) :
+  (∀x ∈ a, Zf.IsOrdinal x) -> IsOrdinal ⋃a := by
   intro mem_ord
-  apply Subtype.mk (⋃a)
   apply Zf.IsOrdinal.mk
   · intro x x_in_union y y_in_x
     apply Zf.mem_sUnion.mpr
@@ -619,6 +647,13 @@ def Ordinal.supremum_of_set (a: α) :
     assumption
     apply (mem_ord y' y'_in_a).mem
     assumption
+
+def Ordinal.supremum_of_set (a: α) :
+  (∀x ∈ a, Zf.IsOrdinal x) -> Ordinal α := by
+  intro mem_ord
+  apply Subtype.mk (⋃a)
+  apply Zf.IsOrdinal.supremum_of_set
+  assumption
 
 def Ordinal.infimum_of_set (a: α) :
   a ≠ ∅ ->
@@ -748,7 +783,7 @@ def Ordinal.supremem_succ (a: Ordinal α) : a.succ.supremum = a := by
     apply Or.inl rfl
     assumption
 
-def Ordinal.le_of_lt_succ {a: Ordinal α} :
+def Ordinal.succ_le_of_lt {a: Ordinal α} :
   ∀{x}, x < a -> x.succ ≤ a := by
   intro x x_lt_a
   intro k k_in_succ
@@ -759,11 +794,76 @@ def Ordinal.le_of_lt_succ {a: Ordinal α} :
   assumption
   assumption
 
+def Ordinal.succ.inj {a b: Ordinal α} : a.succ = b.succ -> a = b := by
+  intro eq
+  cases a; cases b
+  congr
+  apply Zf.IsOrdinal.succ_inj
+  assumption
+  assumption
+  exact Subtype.mk.inj eq
+
+def Ordinal.le_of_lt_succ {a: Ordinal α} :
+  ∀{x}, x < a.succ -> x ≤ a := by
+  intro x x_lt_asucc
+  cases Zf.mem_succ.mp x_lt_asucc
+  cases x; cases a
+  rename_i h
+  cases h
+  apply Zf.sub_refl
+  apply a.property.IsTransitive
+  assumption
+
+def Ordinal.le_of_lt {a: Ordinal α} :
+  ∀{x}, x < a -> x ≤ a := by
+  intro x x_lt_a
+  apply a.property.IsTransitive
+  assumption
+
+def Ordinal.le_refl (a: Ordinal α) : a ≤ a := Zf.sub_refl _
+
+def Ordinal.succ_lt_succ (a b: Ordinal α) : a < b -> a.succ < b.succ := by
+  intro a_lt_b
+  have := lt_trans a_lt_b (lt_succ_self _)
+  cases lt_or_eq_of_le <| succ_le_of_lt this
+  assumption
+  rename_i h
+  cases succ.inj h
+  have := lt_irrefl _ a_lt_b
+  contradiction
+
+def Ordinal.succ_le_succ (a b: Ordinal α) : a ≤ b -> a.succ ≤ b.succ := by
+  intro a_le_b
+  cases lt_or_eq_of_le a_le_b
+  apply le_of_lt
+  apply succ_lt_succ
+  assumption
+  subst b
+  apply le_refl
+
+def Ordinal.lt_of_succ_lt_succ (a b: Ordinal α) : a.succ < b.succ -> a < b := by
+  intro a_lt_b
+  cases lt_or_eq_of_le <| le_of_lt_succ a_lt_b <;> rename_i h
+  apply lt_trans _ h
+  apply lt_succ_self
+  subst b
+  apply lt_succ_self
+
+def Ordinal.lt_of_succ_le_succ (a b: Ordinal α) : a.succ ≤ b.succ -> a ≤ b := by
+  intro a_le_b
+  cases lt_or_eq_of_le a_le_b
+  apply le_of_lt
+  apply lt_of_succ_lt_succ
+  assumption
+  rename_i h
+  cases succ.inj h
+  apply le_refl
+
 def Ordinal.successor_of_limit {a: Ordinal α} :
   a.IsLimitOrdinal ->
   ∀{x}, x < a -> x.succ < a := by
   intro limit x x_lt_a
-  cases lt_or_eq_of_le <| le_of_lt_succ x_lt_a
+  cases lt_or_eq_of_le <| succ_le_of_lt x_lt_a
   assumption
   subst a
   have := limit x
@@ -806,3 +906,189 @@ def Ordinal.succ_addNat (a: Ordinal α) { n: Nat } :
   induction n with
   | zero => rfl
   | succ n ih => rw [addNat_succ, addNat_succ, ih]
+
+def Ordinal.exists_limit_plus_addNat (a: Ordinal α) :
+  ∃(b: Ordinal α), ∃c: Nat, b.IsLimitOrdinal ∧ a = b.addNat c := by
+  induction a using transfinite_induction with
+  | limit a =>
+    exists a
+    exists 0
+  | succ a ih =>
+    have ⟨ b, c, b_limit, eq ⟩ := ih
+    subst eq
+    exists b
+    exists c.succ
+
+def Ordinal.add' (a b: Ordinal α) : α :=
+  a.val ∪ ⋃(Zf.image b.val (fun b' mem => Zf.succ <| Zf.succ (Ordinal.add' a ⟨ _, b.property.mem _ _ mem ⟩)))
+termination_by b
+decreasing_by
+  any_goals assumption
+
+def Ordinal.add'' (a b: Ordinal α) :
+  Zf.IsOrdinal (a.add' b) := by
+  induction b using induction with
+  | lt b ih =>
+    unfold add'
+    apply Zf.IsOrdinal.union
+    exact a.property
+    apply Zf.IsOrdinal.supremum_of_set
+    intro x x_in_image
+    have ⟨ w, w_in_b, _ ⟩ := Zf.mem_image.mp x_in_image
+    subst x
+    apply Zf.IsOrdinal.succ
+    apply Zf.IsOrdinal.succ
+    apply ih
+    assumption
+
+def Ordinal.add (a b: Ordinal α) : Ordinal α := by
+  apply mk (add' a b)
+  apply Ordinal.add''
+
+@[simp]
+def Ordinal.add_val (a b: Ordinal α) : (a.add b).val = a.add' b := rfl
+
+@[simp]
+instance Ordinal.AddInst : Add (Ordinal α) := ⟨ add ⟩
+
+def Ordinal.add_def (a b: Ordinal α) : a + b = a.add b := rfl
+
+def Ordinal.add_eq_addNat (a: Ordinal α) (b: Nat) :
+  a + ofNat b = a.addNat b := by
+  rw [add_def]
+  induction b with
+  | zero =>
+    unfold add
+    congr
+    unfold add'
+    rw [Zf.image_congr, Zf.image_empty, Zf.sUnion_empty, Zf.union_comm, Zf.sub_union]
+    apply Zf.empty_sub
+    rfl
+  | succ b ih =>
+    unfold add
+    congr
+    unfold add'
+
+    rw [Zf.image_congr (ofNat (b + 1)).val (Zf.succ ((ofNat b).val)) _ rfl]
+    rw [Zf.image_succ]
+    have ih₀ := ih
+    unfold add add' at ih₀
+    replace ih₀ := Subtype.mk.inj ih₀
+    rw [Zf.sUnion_union, ←Zf.union_assoc, Zf.union_comm a.val, Zf.union_assoc, ih₀]
+    clear ih₀
+    rw [Zf.IsOrdinal.sUnion_succ, val_mk, Subtype.mk.inj ih, Zf.union_comm, Zf.sub_union]
+    apply (a.addNat b).succ.property.IsTransitive
+    apply Zf.mem_succ.mpr
+    apply Or.inl
+    rfl
+    apply Zf.IsOrdinal.succ
+    apply Ordinal.add''
+
+def Ordinal.le_add_left (a b: Ordinal α) : a ≤ a + b := by
+  rw [add_def]
+  unfold add add'
+  unfold mk
+  dsimp
+  intro k k_in
+  apply Zf.mem_union.mpr
+  apply Or.inl
+  assumption
+
+def Ordinal.lt_add_left (a b: Ordinal α) : b < c -> a + b < a + c := by
+  intro b_lt_c
+  rw [add_def _ c]
+  unfold add add'
+  unfold mk
+  dsimp
+  apply Zf.mem_union.mpr
+  apply Or.inr
+  apply Zf.mem_sUnion.mpr
+  exists (a.add' b)⁺⁺
+  apply And.intro
+  · apply Zf.mem_image.mpr
+    exists b.val
+    exists b_lt_c
+  apply Zf.mem_succ.mpr
+  apply Or.inr
+  apply Zf.mem_succ.mpr
+  apply Or.inl
+  rfl
+
+def Ordinal.add_succ (a b: Ordinal α) : a + b.succ = (a + b).succ := by
+  rw [add_def, add_def]
+  unfold add
+  congr
+  conv => {
+    lhs
+    unfold add'
+  }
+  unfold succ
+  rw [Zf.image_succ, Zf.sUnion_union, Zf.IsOrdinal.sUnion_succ]
+  rw [←Zf.union_assoc, Zf.union_comm a.val, Zf.union_assoc, Zf.union_comm, Zf.sub_union]
+  rfl
+  · intro k mem
+    replace mem := Zf.mem_union.mp mem
+    cases mem <;> rename_i mem
+    apply Zf.mem_succ.mpr
+    apply Or.inr
+    have := le_add_left a b k mem
+    assumption
+    replace mem := Zf.mem_sUnion.mp mem
+    cases mem with | intro w mem =>
+    cases mem with | intro mem_w mem_k =>
+    replace ⟨ z, mem_z, mem_w ⟩  := Zf.mem_image.mp mem_w
+    subst w
+    replace mem_k := Zf.mem_succ.mp mem_k
+    cases mem_k <;> rename_i mem_k
+    subst k
+    apply Zf.IsOrdinal.succ_mem_succ
+    apply Ordinal.add''
+    apply Ordinal.add''
+    apply lt_add_left
+    assumption
+    apply @lt_trans α _ ⟨ k, _ ⟩  (mk (a.add' ⟨ z, _ ⟩ )⁺ _) (mk (a.add' b)⁺ _) mem_k
+    unfold mk
+    apply succ_lt_succ ⟨ a.add'  ⟨ z, _ ⟩, _ ⟩  ⟨ a.add' b, _ ⟩
+    apply lt_add_left
+    assumption
+    apply Zf.IsOrdinal.mem _ _ _ mem_k
+    apply Zf.IsOrdinal.succ
+    apply add''
+  apply Zf.IsOrdinal.succ
+  apply add''
+
+-- #axiom_blame Ordinal.add_succ
+
+def Ordinal.succ_le_succ (a b: Ordinal α) : a ≤ b -> a.succ ≤ b.succ := sorry
+
+def Ordinal.le_add_right (a b: Ordinal α) : b ≤ a + b := by
+  induction b using transfinite_induction with
+  | succ =>
+    rw [Ordinal.add_succ]
+    apply succ_le_succ
+    assumption
+  | limit b limit_b ih =>
+    sorry
+  -- | lt b ih =>
+    -- rw [add_def]
+    -- unfold add add'
+    -- unfold mk
+    -- dsimp
+    -- intro k k_in
+    -- apply Zf.mem_union.mpr
+    -- apply Or.inr
+    -- apply Zf.mem_sUnion.mpr
+    -- have := ih (b.mem k k_in) k_in
+    -- unfold mem at this
+    -- admit
+
+def Ordinal.add_eq_limit (a: Ordinal α) (b: Ordinal α) :
+  b.IsLimitOrdinal ->
+  (a.add ω).val = ⋃(Zf.image Zf.omega (fun b' mem => (a.add ⟨ b', ((ω).property.mem) _ mem ⟩).val)) := by
+  intro limit_b
+  induction b using induction with
+  | lt b ih =>
+    rw [add_val]
+    unfold add'
+    congr
+    admit

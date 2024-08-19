@@ -42,10 +42,12 @@ class Zf (α: Type _) extends
   sep: α -> (α -> Prop) -> α
   mem_sep: ∀{x P y}, y ∈ sep x P ↔ y ∈ x ∧ P y
 
-  image: α -> (α -> α) -> α
-  mem_image: ∀{x f y}, y ∈ image x f ↔ ∃z ∈ x, y = f z
+  image: ∀x: α, (∀y ∈ x, α) -> α
+  mem_image: ∀{x f y}, y ∈ image x f ↔ ∃z, ∃(h: z ∈ x), y = f z h
 
 variable { α: Type _ } [Zf α]
+
+instance Zf.ToWellFounded { α } [Zf α] : @WellFounded α (· ∈ ·) := Zf.wf
 
 prefix:max "⋃" => Zf.sUnion
 
@@ -375,7 +377,7 @@ def Zf.sUnion_singleton { a: α }:
   rfl
   assumption
 
-def Zf.union_comm { a b: α }:
+def Zf.union_comm (a b: α):
   a ∪ b = b ∪ a := by
   rw [←union_def, ←union_def, pair_comm]
 
@@ -612,3 +614,40 @@ def Zf.inter_sub_right (a b: α) :
 def Zf.sub_refl (a: α) : a ⊆ a := fun _ => id
 
 def Zf.empty_sub (a: α) : ∅ ⊆ a := fun _ h => (Zf.not_mem_empty _ h).elim
+
+def Zf.image_congr (a b: α) (f: ∀x ∈ a, α) : (h: a = b) -> Zf.image a f = Zf.image b (fun x mem => f x (h ▸ mem)) := by
+  intro h
+  subst b
+  rfl
+
+def Zf.image_empty (f: ∀x ∈ ∅, α) : Zf.image ∅ f = ∅ := by
+  apply eq_empty_iff_not_mem.mpr
+  intro x x_in_image
+  have ⟨ y, y_in_empty, _ ⟩  := Zf.mem_image.mp x_in_image
+  exact Zf.not_mem_empty _ y_in_empty
+
+def Zf.union_empty (a: α) : a ∪ ∅ = a := by
+  rw [union_comm, sub_union]
+  apply empty_sub
+
+def Zf.image_succ (a: α) (f: ∀x ∈ a⁺, α) : Zf.image a⁺ f = f a (mem_succ.mpr (Or.inl rfl)) ∪ Zf.image a (fun x h => f x (mem_succ.mpr (Or.inr h))) := by
+  apply ext
+  admit
+
+def Zf.union_assoc (a b c: α) : a ∪ b ∪ c = a ∪ (b ∪ c) := by
+  apply ext
+  intro x
+  apply Iff.intro
+  · intro mem
+
+    admit
+  · admit
+
+def Zf.union_self (a: α) : a ∪ a = a := by
+  admit
+
+def Zf.sub_succ (a: α) : a ⊆ a⁺ := by
+  admit
+
+def Zf.sUnion_empty : ⋃(∅: α) = ∅ := by
+  sorry
